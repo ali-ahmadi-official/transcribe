@@ -1,0 +1,863 @@
+{% extends 'base.html' %}
+{% block title %}متن استخراج‌شده{% endblock %}
+
+{% block style %}
+<style>
+    .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .head h1 {
+        font-size: 18px;
+        margin: 0;
+        word-break: break-all;
+    }
+
+    .head .badges {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .badge {
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        background: var(--primary-soft);
+        color: var(--primary-dark);
+    }
+
+    .badge.saved {
+        background: var(--ok-bg);
+        color: var(--ok);
+    }
+
+    .badge.dirty {
+        background: #fff6e0;
+        color: #a16207;
+    }
+
+    audio {
+        width: 100%;
+        margin-bottom: 18px;
+    }
+
+    /* ---------- toolbar ---------- */
+    .toolbar {
+        position: sticky;
+        top: 58px;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 10px;
+        background: var(--primary-softer);
+        border: 1px solid var(--border-strong);
+        border-bottom: none;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .toolbar .tb {
+        font-family: inherit;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        transition: .12s;
+    }
+
+    .toolbar .tb:hover {
+        background: var(--primary-soft);
+        border-color: var(--border-strong);
+    }
+
+    .toolbar .tb.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+    }
+
+    .toolbar .sep {
+        width: 1px;
+        height: 22px;
+        background: var(--border-strong);
+        margin: 0 4px;
+    }
+
+    .toolbar select {
+        font-family: inherit;
+        height: 34px;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text);
+        font-size: 13px;
+        padding: 0 6px;
+        cursor: pointer;
+        max-width: 130px;
+    }
+
+    .toolbar select:hover {
+        border-color: var(--primary);
+    }
+
+    .toolbar .color-tb {
+        position: relative;
+        flex-direction: column;
+        gap: 0;
+        padding: 0 6px;
+        overflow: hidden;
+    }
+
+    .toolbar .color-tb .lbl {
+        font-weight: 700;
+        line-height: 1.1;
+        margin-top: 3px;
+    }
+
+    .toolbar .color-tb .bar {
+        display: block;
+        width: 18px;
+        height: 4px;
+        border-radius: 2px;
+        margin-bottom: 3px;
+        background: #000;
+    }
+
+    .toolbar .color-tb input[type="color"] {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        border: none;
+        padding: 0;
+    }
+
+    /* ---------- find & replace ---------- */
+    .findbar {
+        display: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #fff;
+        border: 1px solid var(--border-strong);
+        border-bottom: none;
+    }
+
+    .findbar.open {
+        display: flex;
+    }
+
+    .findbar input {
+        font-family: inherit;
+        height: 34px;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        padding: 0 10px;
+        font-size: 13px;
+        min-width: 160px;
+    }
+
+    .findbar input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+
+    .findbar .btn {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+
+    /* ---------- editor ---------- */
+    .editor-wrap {
+        background: var(--primary-soft);
+        border: 1px solid var(--border-strong);
+        padding: 22px 14px;
+    }
+
+    .editor {
+        min-height: 420px;
+        max-width: 900px;
+        margin: 0 auto;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        box-shadow: 0 4px 18px rgba(30, 58, 138, .10);
+        padding: 36px 44px;
+        line-height: 2.1;
+        font-size: 17px;
+        outline: none;
+        direction: rtl;
+        text-align: right;
+        font-family: 'Vazirmatn', Tahoma, sans-serif;
+    }
+
+    .editor:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, .15), 0 4px 18px rgba(30, 58, 138, .10);
+    }
+
+    .editor p {
+        margin: 0 0 14px;
+    }
+
+    .editor h1,
+    .editor h2,
+    .editor h3 {
+        color: var(--primary-deep);
+        margin: 18px 0 10px;
+        line-height: 1.6;
+    }
+
+    .editor h1 {
+        font-size: 1.7em;
+    }
+
+    .editor h2 {
+        font-size: 1.4em;
+    }
+
+    .editor h3 {
+        font-size: 1.15em;
+    }
+
+    .editor blockquote {
+        margin: 12px 0;
+        padding: 6px 16px;
+        border-right: 4px solid var(--primary);
+        background: var(--primary-softer);
+        color: #334155;
+    }
+
+    .editor a {
+        color: var(--primary);
+        text-decoration: underline;
+    }
+
+    .editor hr {
+        border: none;
+        border-top: 2px solid var(--border-strong);
+        margin: 20px 0;
+    }
+
+    .editor table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 12px 0;
+    }
+
+    .editor td,
+    .editor th {
+        border: 1px solid var(--border-strong);
+        padding: 8px 10px;
+        min-width: 60px;
+    }
+
+    .editor ul,
+    .editor ol {
+        padding-right: 28px;
+        padding-left: 0;
+    }
+
+    .editor mark {
+        padding: 0 2px;
+    }
+
+    .editor.ltr-default {
+        direction: ltr;
+        text-align: left;
+    }
+
+    /* ---------- status bar ---------- */
+    .statusbar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 14px;
+        font-size: 12px;
+        color: var(--muted);
+        background: var(--primary-softer);
+        border: 1px solid var(--border-strong);
+        border-top: none;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .statusbar b {
+        color: var(--primary-dark);
+        font-weight: 700;
+    }
+
+    /* ---------- actions ---------- */
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .actions .spacer {
+        flex: 1;
+    }
+
+    .back {
+        color: var(--muted);
+        font-size: 14px;
+    }
+
+    .editor.ltr-default ul,
+    .editor.ltr-default ol {
+        padding-left: 28px;
+        padding-right: 0;
+    }
+
+    .editor.ltr-default blockquote {
+        border-right: none;
+        border-left: 4px solid var(--primary);
+    }
+
+    @media (max-width: 640px) {
+        .editor {
+            padding: 20px 16px;
+        }
+
+        .editor-wrap {
+            padding: 10px 6px;
+        }
+    }
+
+    @media print {
+        .card {
+            box-shadow: none;
+            padding: 0;
+            border: none;
+        }
+
+        .editor-wrap {
+            background: #fff;
+            border: none;
+            padding: 0;
+        }
+
+        .editor {
+            border: none;
+            box-shadow: none;
+            padding: 0;
+            max-width: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="head no-print">
+        <h1>{{ title }}</h1>
+        <div class="badges">
+            <span class="badge dirty" id="dirtyBadge" style="display:none">تغییرات ذخیره‌نشده</span>
+            {% if mode == 'saved' %}<span class="badge saved" id="is-saved">ذخیره‌شده</span>{% else %}<span
+                class="badge">ذخیره نشده</span>{% endif %}
+        </div>
+    </div>
+
+    {% if audio_url %}<audio controls src="{{ audio_url }}" class="no-print"></audio>{% endif %}
+
+    <div class="toolbar no-print" id="toolbar">
+        <!-- تاریخچه -->
+        <button class="tb" data-cmd="undo" title="بازگردانی (Ctrl+Z)">↶</button>
+        <button class="tb" data-cmd="redo" title="انجام مجدد (Ctrl+Y)">↷</button>
+        <span class="sep"></span>
+
+        <!-- سبک بلوک -->
+        <select id="blockFmt" title="سبک پاراگراف">
+            <option value="p">متن عادی</option>
+            <option value="h1">عنوان ۱</option>
+            <option value="h2">عنوان ۲</option>
+            <option value="h3">عنوان ۳</option>
+            <option value="blockquote">نقل‌قول</option>
+        </select>
+        <select id="fontFamily" title="فونت">
+            <option value="">فونت</option>
+            <option value="Vazirmatn">وزیرمتن</option>
+            <option value="Tahoma">Tahoma</option>
+            <option value="Arial">Arial</option>
+            <option value="'Times New Roman'">Times New Roman</option>
+            <option value="Georgia">Georgia</option>
+            <option value="'Courier New'">Courier New</option>
+        </select>
+        <select id="fontSize" title="اندازه فونت">
+            <option value="">اندازه</option>
+            <option>12</option>
+            <option>14</option>
+            <option>16</option>
+            <option>17</option>
+            <option>18</option>
+            <option>20</option>
+            <option>24</option>
+            <option>28</option>
+            <option>32</option>
+            <option>40</option>
+        </select>
+        <span class="sep"></span>
+
+        <!-- استایل متن -->
+        <button class="tb" data-cmd="bold" title="درشت (Ctrl+B)"><b>B</b></button>
+        <button class="tb" data-cmd="italic" title="کج (Ctrl+I)"><i>I</i></button>
+        <button class="tb" data-cmd="underline" title="زیرخط (Ctrl+U)"><u>U</u></button>
+        <button class="tb" data-cmd="strikeThrough" title="خط‌خورده"><s>S</s></button>
+        <button class="tb" data-cmd="superscript" title="بالانویس">x²</button>
+        <button class="tb" data-cmd="subscript" title="پایین‌نویس">x₂</button>
+        <span class="sep"></span>
+
+        <!-- رنگ‌ها -->
+        <label class="tb color-tb" title="رنگ متن">
+            <span class="lbl">A</span><span class="bar" id="textColorBar"></span>
+            <input type="color" id="textColor" value="#000000">
+        </label>
+        <label class="tb color-tb" title="رنگ پس‌زمینه متن (هایلایت)">
+            <span class="lbl" style="background:#fff3a3;padding:0 4px;border-radius:3px">ab</span><span class="bar"
+                id="hiliteColorBar" style="background:#fff3a3"></span>
+            <input type="color" id="hiliteColor" value="#fff3a3">
+        </label>
+        <button class="tb" id="clearFormat" title="پاک کردن قالب‌بندی">⌫ قالب</button>
+        <span class="sep"></span>
+
+        <!-- لیست و تورفتگی -->
+        <button class="tb" data-cmd="insertUnorderedList" title="لیست نقطه‌ای">• لیست</button>
+        <button class="tb" data-cmd="insertOrderedList" title="لیست شماره‌دار">۱. لیست</button>
+        <button class="tb" data-cmd="outdent" title="کاهش تورفتگی">⇥</button>
+        <button class="tb" data-cmd="indent" title="افزایش تورفتگی">⇤</button>
+        <span class="sep"></span>
+
+        <!-- تراز و جهت -->
+        <button class="tb" data-cmd="justifyRight" title="راست‌چین">⇥≡</button>
+        <button class="tb" data-cmd="justifyCenter" title="وسط‌چین">≡</button>
+        <button class="tb" data-cmd="justifyLeft" title="چپ‌چین">≡⇤</button>
+        <button class="tb" data-cmd="justifyFull" title="تراز دو طرف">☰</button>
+        <button class="tb" id="dirRtl" title="جهت متن: راست به چپ">RTL ◀</button>
+        <button class="tb" id="dirLtr" title="جهت متن: چپ به راست">▶ LTR</button>
+        <select id="lineHeight" title="فاصله خطوط">
+            <option value="">فاصله خطوط</option>
+            <option value="1.4">۱٫۴</option>
+            <option value="1.8">۱٫۸</option>
+            <option value="2.1">۲٫۱ (پیش‌فرض)</option>
+            <option value="2.5">۲٫۵</option>
+            <option value="3">۳</option>
+        </select>
+        <span class="sep"></span>
+
+        <!-- درج -->
+        <button class="tb" id="insLink" title="درج لینک">🔗</button>
+        <button class="tb" id="unLink" title="حذف لینک">⛓️‍💥</button>
+        <button class="tb" id="insTable" title="درج جدول">▦ جدول</button>
+        <button class="tb" id="insHr" title="خط جداکننده">―</button>
+        <button class="tb" id="insDate" title="درج تاریخ امروز">📅</button>
+        <span class="sep"></span>
+
+        <!-- ابزارها -->
+        <button class="tb" id="selAll" title="انتخاب همه (Ctrl+A)">انتخاب همه</button>
+        <button class="tb" id="findToggle" title="جستجو و جایگزینی (Ctrl+F)">🔍 جایگزینی</button>
+        <button class="tb" id="zoomOut" title="کوچک‌تر کردن نمای صفحه">A−</button>
+        <button class="tb" id="zoomIn" title="بزرگ‌تر کردن نمای صفحه">A+</button>
+    </div>
+
+    <div class="findbar no-print" id="findbar">
+        <input type="text" id="findInput" placeholder="جستجو...">
+        <input type="text" id="replaceInput" placeholder="جایگزین با...">
+        <button class="btn" id="findNext">بعدی</button>
+        <button class="btn" id="replaceOne">جایگزین</button>
+        <button class="btn" id="replaceAll">جایگزینی همه</button>
+        <span id="findInfo" style="font-size:12px;color:var(--muted)"></span>
+        <button class="btn" id="findClose" style="margin-right:auto">✕</button>
+    </div>
+
+    <div class="editor-wrap">
+        <div class="editor {% if dir == 'ltr' %}ltr-default{% endif %}" id="editor" dir="{{ dir }}" lang="{{ lang }}"
+            contenteditable="true" spellcheck="false">
+            {{ content_html|safe }}
+        </div>
+    </div>
+
+
+    <div class="statusbar no-print">
+        <span>کلمات: <b id="wc">0</b> &nbsp;|&nbsp; نویسه‌ها: <b id="cc">0</b> &nbsp;|&nbsp; زمان تقریبی مطالعه: <b
+                id="rt">۰</b> دقیقه</span>
+        <span>برای ذخیره سریع: Ctrl + S</span>
+    </div>
+
+    <div class="actions no-print">
+        <button class="btn" id="printBtn">🖨️ چاپ</button>
+        <button class="btn" id="wordBtn">📝 دانلود Word</button>
+        <button class="btn" id="txtBtn">📃 دانلود TXT</button>
+        <button class="btn" id="copyBtn">📋 کپی متن</button>
+        <span class="spacer"></span>
+        {% if mode == 'job' %}
+        <button class="btn danger" id="discardBtn">دور انداختن</button>
+        <button class="btn success" id="saveBtn">💾 ذخیره (صوت + متن) در دیتابیس</button>
+        {% else %}
+        <a class="btn" href="{% url 'index' %}">بازگشت</a>
+        <button class="btn success" id="saveBtn">💾 ذخیره تغییرات</button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+    const MODE = "{{ mode }}";
+    const SAVE_URL = "{{ save_url }}";
+    const DISCARD_URL = "{{ discard_url }}";
+    const DOC_TITLE = "{{ title|escapejs }}";
+    const INDEX_URL = "{% url 'index' %}";
+    const DIR = "{{ dir }}";
+
+    const editor = document.getElementById('editor');
+    const savedBadge = document.getElementById('is-saved');
+    const dirtyBadge = document.getElementById('dirtyBadge');
+    let zoom = 17;
+    let dirty = false;
+
+    // ---------- نگه‌داشتن انتخاب متن (برای select ها و ورودی‌ها) ----------
+    let savedRange = null;
+    document.addEventListener('selectionchange', () => {
+        const s = window.getSelection();
+        if (s.rangeCount && editor.contains(s.anchorNode)) {
+            savedRange = s.getRangeAt(0).cloneRange();
+            updateActiveStates();
+        }
+    });
+    function restoreSel() {
+        editor.focus();
+        if (savedRange) {
+            const s = window.getSelection();
+            s.removeAllRanges();
+            s.addRange(savedRange);
+        }
+    }
+    function exec(cmd, val) {
+        restoreSel();
+        document.execCommand(cmd, false, val == null ? null : val);
+        markDirty();
+        updateActiveStates();
+    }
+
+    // ---------- دکمه‌های ساده‌ی toolbar ----------
+    document.querySelectorAll('[data-cmd]').forEach(b => {
+        b.addEventListener('mousedown', e => e.preventDefault());
+        b.addEventListener('click', () => exec(b.dataset.cmd));
+    });
+    // سایر دکمه‌ها هم انتخاب را از دست ندهند
+    document.querySelectorAll('.toolbar .tb:not([data-cmd])').forEach(b => {
+        if (!b.classList.contains('color-tb')) b.addEventListener('mousedown', e => e.preventDefault());
+    });
+
+    // حالت فعال دکمه‌ها (bold, italic, ...)
+    const STATE_CMDS = ['bold', 'italic', 'underline', 'strikeThrough', 'superscript', 'subscript',
+        'insertUnorderedList', 'insertOrderedList', 'justifyRight', 'justifyCenter', 'justifyLeft', 'justifyFull'];
+    function updateActiveStates() {
+        STATE_CMDS.forEach(c => {
+            const b = document.querySelector(`[data-cmd="${c}"]`);
+            if (!b) return;
+            let on = false;
+            try { on = document.queryCommandState(c); } catch (e) { }
+            b.classList.toggle('active', on);
+        });
+        try {
+            let f = (document.queryCommandValue('formatBlock') || '').toLowerCase().replace(/[<>]/g, '');
+            if (f === 'div' || f === '') f = 'p';
+            const sel = document.getElementById('blockFmt');
+            if ([...sel.options].some(o => o.value === f)) sel.value = f;
+        } catch (e) { }
+    }
+
+    // ---------- سبک بلوک / فونت / اندازه ----------
+    document.getElementById('blockFmt').addEventListener('change', e => {
+        exec('formatBlock', e.target.value === 'p' ? 'p' : e.target.value);
+    });
+    document.getElementById('fontFamily').addEventListener('change', e => {
+        if (e.target.value) exec('fontName', e.target.value);
+        e.target.value = '';
+    });
+    document.getElementById('fontSize').addEventListener('change', e => {
+        const px = e.target.value;
+        e.target.value = '';
+        if (!px) return;
+        restoreSel();
+        document.execCommand('styleWithCSS', false, false);
+        document.execCommand('fontSize', false, '7');
+        document.execCommand('styleWithCSS', false, true);
+        editor.querySelectorAll('font[size="7"]').forEach(f => {
+            const sp = document.createElement('span');
+            sp.style.fontSize = px + 'px';
+            sp.innerHTML = f.innerHTML;
+            f.replaceWith(sp);
+        });
+        editor.querySelectorAll('span[style*="xxx-large"]').forEach(sp => { sp.style.fontSize = px + 'px'; });
+        markDirty();
+    });
+    document.execCommand('styleWithCSS', false, true);
+
+    // ---------- رنگ‌ها ----------
+    const textColor = document.getElementById('textColor');
+    const hiliteColor = document.getElementById('hiliteColor');
+    textColor.addEventListener('input', e => {
+        document.getElementById('textColorBar').style.background = e.target.value;
+        exec('foreColor', e.target.value);
+    });
+    hiliteColor.addEventListener('input', e => {
+        document.getElementById('hiliteColorBar').style.background = e.target.value;
+        exec('hiliteColor', e.target.value);
+    });
+    document.getElementById('clearFormat').addEventListener('click', () => {
+        exec('removeFormat');
+        exec('formatBlock', 'p');
+    });
+
+    // ---------- جهت متن و فاصله‌ی خطوط (روی بلوک‌های انتخاب‌شده) ----------
+    function selectedBlocks() {
+        restoreSel();
+        const s = window.getSelection();
+        if (!s.rangeCount) return [];
+        const r = s.getRangeAt(0);
+        // اگر متن مستقیم داخل editor بود، آن را در <p> بپیچ
+        [...editor.childNodes].forEach(n => {
+            if (n.nodeType === 3 && n.textContent.trim() && r.intersectsNode(n)) {
+                const p = document.createElement('p');
+                n.replaceWith(p); p.appendChild(n);
+            }
+        });
+        return [...editor.children].filter(el => r.intersectsNode(el));
+    }
+    function setDir(dir) {
+        selectedBlocks().forEach(el => {
+            el.setAttribute('dir', dir);
+            el.style.textAlign = dir === 'rtl' ? 'right' : 'left';
+        });
+        markDirty();
+    }
+    document.getElementById('dirRtl').addEventListener('click', () => setDir('rtl'));
+    document.getElementById('dirLtr').addEventListener('click', () => setDir('ltr'));
+    document.getElementById('lineHeight').addEventListener('change', e => {
+        const v = e.target.value;
+        e.target.value = '';
+        if (!v) return;
+        selectedBlocks().forEach(el => { el.style.lineHeight = v; });
+        markDirty();
+    });
+
+    // ---------- درج ----------
+    document.getElementById('insLink').addEventListener('click', () => {
+        const sel = window.getSelection();
+        if (!savedRange || savedRange.collapsed) { toast('اول متنی را که می‌خواهید لینک شود انتخاب کنید', true); return; }
+        let url = prompt('آدرس لینک را وارد کنید:', 'https://');
+        if (!url || url === 'https://') return;
+        if (!/^(https?:|mailto:|tel:)/i.test(url)) url = 'https://' + url;
+        exec('createLink', url);
+        editor.querySelectorAll('a').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+    });
+    document.getElementById('unLink').addEventListener('click', () => exec('unlink'));
+    document.getElementById('insHr').addEventListener('click', () => exec('insertHorizontalRule'));
+    document.getElementById('insDate').addEventListener('click', () => {
+        exec('insertText', new Date().toLocaleDateString('fa-IR'));
+    });
+    document.getElementById('insTable').addEventListener('click', () => {
+        const rows = parseInt(prompt('تعداد سطر:', '3'), 10);
+        if (!rows || rows < 1) return;
+        const cols = parseInt(prompt('تعداد ستون:', '3'), 10);
+        if (!cols || cols < 1) return;
+        let html = '<table><tbody>';
+        for (let i = 0; i < Math.min(rows, 30); i++) {
+            html += '<tr>' + '<td><br></td>'.repeat(Math.min(cols, 12)) + '</tr>';
+        }
+        html += '</tbody></table><p><br></p>';
+        exec('insertHTML', html);
+    });
+    document.getElementById('selAll').addEventListener('click', () => exec('selectAll'));
+
+    // ---------- زوم نمای ویرایشگر ----------
+    function setZoom(d) {
+        zoom = Math.min(30, Math.max(12, zoom + d));
+        editor.style.fontSize = zoom + 'px';
+    }
+    document.getElementById('zoomIn').addEventListener('click', () => setZoom(1));
+    document.getElementById('zoomOut').addEventListener('click', () => setZoom(-1));
+
+    // ---------- جستجو و جایگزینی ----------
+    const findbar = document.getElementById('findbar');
+    const findInput = document.getElementById('findInput');
+    const replaceInput = document.getElementById('replaceInput');
+    const findInfo = document.getElementById('findInfo');
+
+    function toggleFind(open) {
+        findbar.classList.toggle('open', open);
+        if (open) { findInput.focus(); findInput.select(); }
+    }
+    document.getElementById('findToggle').addEventListener('click', () => toggleFind(!findbar.classList.contains('open')));
+    document.getElementById('findClose').addEventListener('click', () => toggleFind(false));
+
+    function countMatches(q) {
+        if (!q) return 0;
+        return (editor.innerText.split(q).length - 1);
+    }
+    function findNext() {
+        const q = findInput.value;
+        if (!q) return false;
+        editor.focus();
+        const found = window.find(q, false, false, true, false, false, false);
+        findInfo.textContent = found ? `${countMatches(q)} مورد` : 'پیدا نشد';
+        return found;
+    }
+    document.getElementById('findNext').addEventListener('click', findNext);
+    findInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); findNext(); } });
+
+    document.getElementById('replaceOne').addEventListener('click', () => {
+        const q = findInput.value;
+        if (!q) return;
+        const sel = window.getSelection();
+        if (sel.toString() !== q) { if (!findNext()) return; }
+        if (window.getSelection().toString() === q) {
+            document.execCommand('insertText', false, replaceInput.value);
+            markDirty();
+            findNext();
+        }
+    });
+    document.getElementById('replaceAll').addEventListener('click', () => {
+        const q = findInput.value;
+        if (!q) return;
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        let n = 0;
+        nodes.forEach(t => {
+            if (t.nodeValue.includes(q)) {
+                n += t.nodeValue.split(q).length - 1;
+                t.nodeValue = t.nodeValue.split(q).join(replaceInput.value);
+            }
+        });
+        findInfo.textContent = n ? `${n} مورد جایگزین شد` : 'پیدا نشد';
+        if (n) markDirty();
+    });
+
+    // ---------- شمارنده‌ها / وضعیت تغییرات ----------
+    const toFa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    function updateCounts() {
+        const t = (editor.innerText || '').trim();
+        const words = t ? t.split(/\s+/).length : 0;
+        document.getElementById('wc').textContent = toFa(words);
+        document.getElementById('cc').textContent = toFa(t.length);
+        document.getElementById('rt').textContent = toFa(Math.max(1, Math.round(words / 200)));
+    }
+    function markDirty() {
+        dirty = true;
+        dirtyBadge.style.display = '';
+        if (savedBadge) savedBadge.style.display = 'none';
+        updateCounts();
+    }
+    editor.addEventListener('input', markDirty);
+    updateCounts();
+
+    // پاک‌سازی چسباندن: متن بدون قالب‌بندی‌های اضافی Word / وب (Shift+Ctrl+V = معمولی)
+    editor.addEventListener('paste', e => {
+        const html = e.clipboardData.getData('text/html');
+        const text = e.clipboardData.getData('text/plain');
+        if (html && /<(?:meta|o:p|style|xml)/i.test(html)) {
+            e.preventDefault();
+            document.execCommand('insertText', false, text);
+        }
+    });
+
+    // ---------- خروجی‌ها ----------
+    const fileBase = () => (DOC_TITLE || 'text').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '_');
+    function download(blob, name) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+    document.getElementById('wordBtn').addEventListener('click', () => {
+        const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+            'xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
+            '<head><meta charset="utf-8"><title>' + fileBase() + '</title>' +
+            '<style>body{font-family:Tahoma,Arial,sans-serif;direction:' + DIR +
+            ';text-align:' + (DIR === 'rtl' ? 'right' : 'left') + ';line-height:1.9}' +
+            'table{border-collapse:collapse}td{border:1px solid #999;padding:6px}</style></head>' +
+            '<body dir="' + DIR + '">' + editor.innerHTML + '</body></html>';
+        download(new Blob(['\ufeff', html], { type: 'application/msword' }), fileBase() + '.doc');
+    });
+
+    document.getElementById('txtBtn').addEventListener('click', () => {
+        download(new Blob(['\ufeff' + editor.innerText], { type: 'text/plain;charset=utf-8' }), fileBase() + '.txt');
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(editor.innerText);
+            toast('✅ متن کپی شد');
+        } catch (e) { toast('❌ کپی انجام نشد', true); }
+    });
+
+    // ---------- ذخیره / دور انداختن ----------
+    const saveBtn = document.getElementById('saveBtn');
+    async function save() {
+        saveBtn.disabled = true;
+        try {
+            const r = await postJSON(SAVE_URL, { html: editor.innerHTML });
+            dirty = false;
+            dirtyBadge.style.display = 'none';
+            if (savedBadge) savedBadge.style.display = '';
+            toast('✅ ذخیره شد');
+            if (MODE === 'job' && r.url) setTimeout(() => location.href = r.url, 600);
+        } catch (err) {
+            toast('❌ ' + err.message, true);
+        }
+        saveBtn.disabled = false;
+    }
+    saveBtn.addEventListener('click', save);
+
+    const discardBtn = document.getElementById('discardBtn');
+    if (discardBtn) discardBtn.addEventListener('click', async () => {
+        if (!confirm('این نتیجه ذخیره نشده و حذف می‌شود. ادامه می‌دهید؟')) return;
+        dirty = false;
+        try { await postJSON(DISCARD_URL); } catch (e) { }
+        location.href = INDEX_URL;
+    });
+
+    // ---------- میانبرها و هشدار خروج ----------
+    document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && document.activeElement === editor) {
+            e.preventDefault(); toggleFind(true);
+        }
+        if (e.key === 'Escape') toggleFind(false);
+    });
+    window.addEventListener('beforeunload', e => {
+        if (dirty && MODE === 'saved') { e.preventDefault(); e.returnValue = ''; }
+    });
+</script>
+{% endblock %}

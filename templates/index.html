@@ -1,0 +1,517 @@
+{% extends 'base.html' %}
+
+{% block style %}
+<style>
+    .drop {
+        display: block;
+        border: 2px dashed var(--border-strong);
+        border-radius: 14px;
+        padding: 36px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: .2s;
+        color: var(--muted);
+    }
+
+    .drop:hover,
+    .drop.dragover {
+        border-color: var(--primary);
+        background: var(--primary-soft);
+        color: var(--primary);
+    }
+
+    .drop input {
+        display: none;
+    }
+
+    .drop .icon {
+        font-size: 34px;
+        margin-bottom: 6px;
+    }
+
+    .filename {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--primary);
+        word-break: break-all;
+    }
+
+    .status {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        font-size: 14px;
+        display: none;
+        background: var(--primary-soft);
+        color: var(--primary);
+    }
+
+    .status.success {
+        background: var(--ok-bg);
+        color: var(--ok);
+    }
+
+    .status.error {
+        background: var(--err-bg);
+        color: var(--err);
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin .8s linear infinite;
+        vertical-align: middle;
+        margin-left: 8px;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .list li a {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        padding: 14px 4px;
+        border-bottom: 1px solid var(--border);
+        transition: .15s;
+    }
+
+    .list li:last-child a {
+        border-bottom: none;
+    }
+
+    .list li a:hover {
+        background: var(--primary-softer);
+    }
+
+    .list .name {
+        font-weight: 500;
+        font-size: 14px;
+    }
+
+    .list .preview {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 4px;
+    }
+
+    .list .date {
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .empty {
+        color: var(--muted);
+        font-size: 14px;
+        text-align: center;
+        padding: 16px 0;
+    }
+
+    .rec-divider {
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+        margin: 16px 0 12px;
+        position: relative;
+    }
+
+    .rec-divider::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        right: 0;
+        left: 0;
+        border-top: 1px solid var(--border);
+    }
+
+    .rec-divider span {
+        background: #fff;
+        padding: 0 12px;
+        position: relative;
+    }
+
+    .rec-box {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .rec-box audio {
+        width: 100%;
+    }
+
+    .btn.recording {
+        background: var(--err);
+        border-color: var(--err);
+        color: #fff;
+    }
+
+    .btn.recording:hover {
+        color: var(--err);
+    }
+
+    .rec-timer {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        color: var(--err);
+        font-weight: 700;
+    }
+
+    .rec-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--err);
+        animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        50% {
+            opacity: .25;
+        }
+    }
+
+    .rec-viz {
+        display: none;
+        width: 100%;
+        height: 64px;
+        background: var(--primary-soft);
+        border-radius: 10px;
+    }
+
+    .lang-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 18px;
+        font-size: 14px;
+    }
+
+    .lang-row select {
+        font-family: inherit;
+        height: 38px;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        padding: 0 10px;
+        background: #fff;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>تبدیل ویس به متن</h1>
+    <div class="sub">فایل صوتی خود را آپلود کنید تا متن آن استخراج شود.</div>
+
+    <form id="form">
+        <label class="drop" id="drop">
+            <input type="file" id="file" name="audio" accept="audio/*,.ogg,.oga,.opus,.m4a">
+            <div class="icon">📁</div>
+            <div>فایل صوتی را اینجا بکشید یا کلیک کنید</div>
+            <div class="filename" id="filename"></div>
+        </label>
+
+        <div class="rec-divider"><span>یا</span></div>
+        <div class="rec-box">
+            <button type="button" class="btn" id="recBtn">🎤 ضبط صدا با میکروفون</button>
+            <span class="rec-timer" id="recTimer"><span class="rec-dot"></span><span id="recTime">00:00</span></span>
+            <canvas id="recViz" class="rec-viz"></canvas>
+            <audio id="recAudio" controls style="display:none"></audio>
+        </div>
+        <div class="lang-row">
+            <label for="language">زبان صوت:</label>
+            <select id="language" name="language">
+                <option value="fa">فارسی</option>
+                <option value="en">English</option>
+            </select>
+        </div>
+        <button type="submit" class="btn primary" id="submitBtn"
+            style="width:100%;justify-content:center;margin-top:18px;padding:14px" disabled>شروع تبدیل</button>
+    </form>
+    <div class="status" id="status"></div>
+</div>
+
+<div class="card">
+    <h2>تبدیل‌های ذخیره‌شده</h2>
+    {% if items %}
+    <ul class="list">
+        {% for t in items %}
+        <li>
+            <a href="{% url 'detail' t.id %}">
+                <div>
+                    <div class="name">{{ t.audio_file.name|cut:"audio_uploads/" }}</div>
+                    <div class="preview">{{ t.text|striptags|truncatechars:110 }}</div>
+                </div>
+                <div class="date">{{ t.created_at|date:"Y/m/d H:i" }}</div>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty">هنوز موردی ذخیره نشده است.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const UPLOAD_URL = "{% url 'upload' %}";
+    const STATUS_URL = "{% url 'status' '00000000-0000-0000-0000-000000000000' %}";
+    const RESULT_URL = "{% url 'result' '00000000-0000-0000-0000-000000000000' %}";
+    const ZERO = '00000000-0000-0000-0000-000000000000';
+
+    const form = document.getElementById('form');
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('file');
+    const filename = document.getElementById('filename');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusBox = document.getElementById('status');
+
+    function setStatus(msg, type = 'info', spinner = false) {
+        statusBox.style.display = 'block';
+        statusBox.className = 'status ' + type;
+        statusBox.innerHTML = (spinner ? '<span class="spinner"></span>' : '') + msg;
+    }
+
+    // drag & drop
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+    drop.addEventListener('drop', e => {
+        e.preventDefault();
+        drop.classList.remove('dragover');
+        if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; onFileSelected(); }
+    });
+    fileInput.addEventListener('change', onFileSelected);
+    function onFileSelected(fromRecorder) {
+        const f = fileInput.files[0];
+        if (f) { filename.textContent = f.name; submitBtn.disabled = false; statusBox.style.display = 'none'; }
+        if (fromRecorder !== true) recAudio.style.display = 'none';   // فایل دستی انتخاب شد
+    }
+
+    // ---------- ضبط مستقیم صدا ----------
+    const recBtn = document.getElementById('recBtn');
+    const recTimer = document.getElementById('recTimer');
+    const recTime = document.getElementById('recTime');
+    const recAudio = document.getElementById('recAudio');
+    let mediaRecorder = null, recChunks = [], recStream = null, recStart = 0, recInterval = null;
+
+    function pickMime() {
+        const list = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+        return list.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+    }
+    function extFor(mime) {
+        if (mime.includes('ogg')) return 'ogg';
+        if (mime.includes('mp4')) return 'mp4';
+        return 'webm';
+    }
+    function fmt(sec) {
+        return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+    }
+
+    async function startRecording() {
+        if (!navigator.mediaDevices || !window.MediaRecorder) {
+            setStatus('❌ ضبط صدا پشتیبانی نمی‌شود. مرورگر را به‌روز کنید و مطمئن شوید صفحه روی localhost یا HTTPS باز شده است.', 'error');
+            return;
+        }
+        try {
+            recStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        } catch (err) {
+            const msg = err.name === 'NotAllowedError' ? 'دسترسی به میکروفون داده نشد. اجازه‌ی میکروفون را در مرورگر فعال کنید.'
+                : err.name === 'NotFoundError' ? 'میکروفونی پیدا نشد.'
+                    : err.message;
+            setStatus('❌ ' + msg, 'error');
+            return;
+        }
+        const mime = pickMime();
+        mediaRecorder = new MediaRecorder(recStream, mime ? { mimeType: mime } : undefined);
+        recChunks = [];
+        mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+        mediaRecorder.onstop = finishRecording;
+        mediaRecorder.start(1000);
+        startViz(recStream);
+
+        statusBox.style.display = 'none';
+        recAudio.style.display = 'none';
+        submitBtn.disabled = true;
+        recBtn.textContent = '⏹ توقف ضبط';
+        recBtn.classList.add('recording');
+        recTimer.style.display = 'inline-flex';
+        recStart = Date.now();
+        recTime.textContent = '00:00';
+        recInterval = setInterval(() => recTime.textContent = fmt(Math.floor((Date.now() - recStart) / 1000)), 500);
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    }
+
+    function finishRecording() {
+        clearInterval(recInterval);
+        stopViz();
+        recStream.getTracks().forEach(t => t.stop());          // چراغ میکروفون خاموش شود
+        recBtn.textContent = '🎤 ضبط دوباره';
+        recBtn.classList.remove('recording');
+        recTimer.style.display = 'none';
+
+        const mime = mediaRecorder.mimeType || 'audio/webm';
+        const blob = new Blob(recChunks, { type: mime });
+        if (!blob.size) {
+            setStatus('❌ صدایی ضبط نشد. دوباره تلاش کنید.', 'error');
+            return;
+        }
+        const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+        const file = new File([blob], `recording-${stamp}.${extFor(mime)}`, { type: mime });
+
+        // فایل ضبط‌شده را مثل یک فایل آپلودی در input می‌گذاریم تا همان مسیر قبلی کار کند
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+
+        if (recAudio.src) URL.revokeObjectURL(recAudio.src);
+        recAudio.src = URL.createObjectURL(blob);
+        recAudio.style.display = 'block';
+        onFileSelected(true);
+    }
+
+    // ---------- نمایشگر سطح صدا (آمپلی‌فایر) ----------
+    const recViz = document.getElementById('recViz');
+    let audioCtx = null, analyser = null, vizRaf = null;
+
+    function startViz(stream) {
+        const dpr = window.devicePixelRatio || 1;
+        recViz.style.display = 'block';
+        recViz.width = recViz.clientWidth * dpr;
+        recViz.height = recViz.clientHeight * dpr;
+        const ctx = recViz.getContext('2d');
+
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.resume();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.75;
+        audioCtx.createMediaStreamSource(stream).connect(analyser);
+
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        const bars = 48, usable = 64, gap = 3 * dpr;
+
+        const draw = () => {
+            vizRaf = requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(data);
+            const W = recViz.width, H = recViz.height;
+            ctx.clearRect(0, 0, W, H);
+            const bw = (W - gap * (bars - 1)) / bars;
+            for (let i = 0; i < bars; i++) {
+                let v = data[Math.floor(i * usable / bars)] / 255;
+                v = Math.min(1, v * (1 + i / bars));                 // تقویت کمی فرکانس‌های بالاتر
+                const h = Math.max(3 * dpr, v * H * 0.95);
+                ctx.fillStyle = v > 0.85 ? '#c33' : '#2563eb';       // قرمز = صدای خیلی بلند
+                ctx.beginPath();
+                if (ctx.roundRect) ctx.roundRect(i * (bw + gap), (H - h) / 2, bw, h, bw / 2);
+                else ctx.rect(i * (bw + gap), (H - h) / 2, bw, h);
+                ctx.fill();
+            }
+        };
+        draw();
+    }
+
+    function stopViz() {
+        if (vizRaf) cancelAnimationFrame(vizRaf);
+        vizRaf = null;
+        if (audioCtx) { audioCtx.close(); audioCtx = null; }
+        recViz.style.display = 'none';
+    }
+
+    recBtn.addEventListener('click', () => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording();
+        else startRecording();
+    });
+
+    // آپلود با درصد پیشرفت
+    function upload(file) {
+        return new Promise((resolve, reject) => {
+            const fd = new FormData();
+            fd.append('audio', file);
+            fd.append('language', document.getElementById('language').value);
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', UPLOAD_URL);
+            xhr.setRequestHeader('X-CSRFToken', CSRF);
+            xhr.upload.onprogress = e => {
+                if (e.lengthComputable) setStatus(`در حال ارسال فایل... ${Math.round(e.loaded / e.total * 100)}٪`, 'info', true);
+            };
+            xhr.onload = () => {
+                let data = {};
+                try { data = JSON.parse(xhr.responseText); } catch (e) { }
+                if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+                else reject(new Error(data.error || 'خطا در ارسال فایل'));
+            };
+            xhr.onerror = () => reject(new Error('اتصال به سرور برقرار نشد'));
+            xhr.send(fd);
+        });
+    }
+
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const file = fileInput.files[0];
+        if (!file) return;
+        submitBtn.disabled = true;
+        setStatus('در حال ارسال فایل... ۰٪', 'info', true);
+        try {
+            const data = await upload(file);
+            setStatus('فایل ارسال شد. منتظر شروع تبدیل...', 'info', true);
+            poll(data.id);
+        } catch (err) {
+            setStatus('❌ ارسال ناموفق بود: ' + err.message, 'error');
+            submitBtn.disabled = false;
+        }
+    });
+
+    function poll(id) {
+        const tick = async () => {
+            try {
+                const res = await fetch(STATUS_URL.replace(ZERO, id));
+                const data = await res.json();
+
+                if (data.status === 'done') {
+                    setStatus('✅ تبدیل با موفقیت انجام شد. در حال انتقال به صفحه متن...', 'success');
+                    setTimeout(() => location.href = RESULT_URL.replace(ZERO, id), 700);
+                    return;
+                }
+                if (data.status === 'failed') {
+                    setStatus('❌ تبدیل ناموفق بود: ' + (data.error || 'خطای نامشخص'), 'error');
+                    submitBtn.disabled = false;
+                    return;
+                }
+                const msg = data.status === 'pending'
+                    ? 'در صف تبدیل...'
+                    : 'در حال تبدیل صوت به متن ... این کار ممکن است چند دقیقه طول بکشد.';
+                setStatus(msg, 'info', true);
+                setTimeout(tick, 1500);
+            } catch (err) {
+                setStatus('❌ خطا در دریافت وضعیت از سرور', 'error');
+                submitBtn.disabled = false;
+            }
+        };
+        tick();
+    }
+</script>
+{% endblock %}
