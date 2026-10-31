@@ -456,13 +456,13 @@
             xhr.open('POST', UPLOAD_URL);
             xhr.setRequestHeader('X-CSRFToken', CSRF);
             xhr.upload.onprogress = e => {
-                if (e.lengthComputable) setStatus(`در حال ارسال فایل... ${Math.round(e.loaded / e.total * 100)}٪`, 'info', true);
+                if (e.lengthComputable) setStatus(`در حال بارگزاری فایل... ${Math.round(e.loaded / e.total * 100)}٪`, 'info', true);
             };
             xhr.onload = () => {
                 let data = {};
                 try { data = JSON.parse(xhr.responseText); } catch (e) { }
                 if (xhr.status >= 200 && xhr.status < 300) resolve(data);
-                else reject(new Error(data.error || 'خطا در ارسال فایل'));
+                else reject(new Error(data.error || 'خطا در بارگزاری فایل'));
             };
             xhr.onerror = () => reject(new Error('اتصال به سرور برقرار نشد'));
             xhr.send(fd);
@@ -474,13 +474,13 @@
         const file = fileInput.files[0];
         if (!file) return;
         submitBtn.disabled = true;
-        setStatus('در حال ارسال فایل... ۰٪', 'info', true);
+        setStatus('در حال بارگزاری فایل... ۰٪', 'info', true);
         try {
             const data = await upload(file);
-            setStatus('فایل ارسال شد. منتظر شروع تبدیل...', 'info', true);
+            setStatus('فایل بارگزاری شد. منتظر شروع تبدیل...', 'info', true);
             poll(data.id);
         } catch (err) {
-            setStatus('❌ ارسال ناموفق بود: ' + err.message, 'error');
+            setStatus('❌ بارگزاری ناموفق بود: ' + err.message, 'error');
             submitBtn.disabled = false;
         }
     });

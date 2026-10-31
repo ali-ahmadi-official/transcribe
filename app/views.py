@@ -52,12 +52,6 @@ LANGS = {
     },
 }
 DEFAULT_LANG = 'fa'
-MEDICAL_PROMPT = (
-    "گزارش رادیولوژی MRI و CT با تزریق IV Contrast. "
-    "سکانس‌های T1 و T2 و FLAIR و STIR و GRE، "
-    "تصاویر DWI و نقشه ADC، مطالعه Diffusion و Perfusion، "
-    "تصاویر Post Contrast، MRA و MRV، و بازسازی‌های MIP و MPR."
-)
 
 
 class _Sanitizer(HTMLParser):
