@@ -10,4 +10,5 @@ urlpatterns = [
     path('api/result/<uuid:job_id>/discard/', views.discard_result, name='discard_result'),
     path('transcription/<uuid:pk>/', views.detail, name='detail'),
     path('api/transcription/<uuid:pk>/update/', views.update_saved, name='update_saved'),
+    path('report/<uuid:job_id>/', views.start_report, name='start_report'),
 ]

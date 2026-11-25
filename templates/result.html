@@ -365,6 +365,76 @@
             max-width: none;
         }
     }
+
+    .ai-box {
+        margin-top: 26px;
+        padding-top: 22px;
+        border-top: 2px dashed var(--border-strong);
+    }
+
+    .ai-box textarea {
+        width: 100%;
+        min-height: 90px;
+        font-family: inherit;
+        font-size: 14px;
+        padding: 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        resize: vertical;
+        margin-bottom: 12px;
+    }
+
+    .ai-box textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+
+    .ai-status {
+        display: none;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 14px;
+        background: var(--primary-soft);
+        color: var(--primary);
+    }
+
+    .ai-status.error {
+        background: var(--err-bg);
+        color: var(--err);
+    }
+
+    .ai-notice {
+        background: #fff6e0;
+        color: #a16207;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        font-size: 13px;
+    }
+
+    .ai-notice a {
+        text-decoration: underline;
+    }
+
+    .spin {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin .8s linear infinite;
+        vertical-align: middle;
+        margin-left: 8px;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
 </style>
 {% endblock %}
 
@@ -490,6 +560,15 @@
         <button class="btn" id="findClose" style="margin-right:auto">✕</button>
     </div>
 
+    {% if mode == 'job' and is_ai %}
+    <div class="ai-notice no-print">
+        ⚠️ این گزارش توسط هوش مصنوعی ساخته شده و پیش‌نویس است؛ پزشک باید آن را بازبینی و اصلاح کند.
+        <a href="?view=original">مشاهده متن اصلی</a>
+    </div>
+    {% elif mode == 'job' and has_report %}
+    <div class="ai-notice no-print">این متن اصلی است. <a href="?view=report">مشاهده گزارش هوش مصنوعی</a></div>
+    {% endif %}
+
     <div class="editor-wrap">
         <div class="editor {% if dir == 'ltr' %}ltr-default{% endif %}" id="editor" dir="{{ dir }}" lang="{{ lang }}"
             contenteditable="true" spellcheck="false">
@@ -518,6 +597,16 @@
         <button class="btn success" id="saveBtn">💾 ذخیره تغییرات</button>
         {% endif %}
     </div>
+    {% if mode == 'job' %}
+    <div class="ai-box no-print">
+        <h2>🤖 ساخت گزارش با هوش مصنوعی</h2>
+        <div class="sub">متن بالا (با ویرایش‌های شما) به هوش مصنوعی داده می‌شود. اگر دستور خاصی دارید بنویسید، وگرنه
+            خالی بگذارید.</div>
+        <textarea id="aiPrompt" placeholder="مثلاً: گزارش سونوگرافی کبد چرب گرید ۱ بنویس / مختصرتر بنویس"></textarea>
+        <button class="btn primary" id="aiBtn">✨ ساخت گزارش</button>
+        <div class="ai-status" id="aiStatus"></div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -860,4 +949,51 @@
         if (dirty && MODE === 'saved') { e.preventDefault(); e.returnValue = ''; }
     });
 </script>
+{% if mode == 'job' %}
+<script>
+
+    // ---------- هوش مصنوعی ----------
+    const AI_START_URL = "{% url 'start_report' job_id %}";
+    const AI_STATUS_URL = "{% url 'status' job_id %}";
+    const AI_RESULT_URL = "{% url 'result' job_id %}";
+    const aiBtn = document.getElementById('aiBtn');
+    const aiStatus = document.getElementById('aiStatus');
+
+    function setAi(msg, type, spin) {
+        aiStatus.style.display = 'block';
+        aiStatus.className = 'ai-status ' + (type || '');
+        aiStatus.innerHTML = (spin ? '<span class="spin"></span>' : '') + msg;
+    }
+
+    aiBtn.addEventListener('click', async () => {
+        const text = editor.innerText.trim();
+        if (!text) { toast('متنی برای ارسال وجود ندارد', true); return; }
+        aiBtn.disabled = true;
+        setAi('در حال ساخت گزارش... ممکن است چند دقیقه طول بکشد، صفحه را نبندید.', '', true);
+        try {
+            await postJSON(AI_START_URL, { text, prompt: document.getElementById('aiPrompt').value });
+            pollAi();
+        } catch (err) {
+            setAi('❌ ' + err.message, 'error');
+            aiBtn.disabled = false;
+        }
+    });
+
+    function pollAi() {
+        const tick = async () => {
+            try {
+                const d = await (await fetch(AI_STATUS_URL)).json();
+                if (d.status === 'failed') { setAi('❌ ' + (d.error || 'خطا'), 'error'); aiBtn.disabled = false; return; }
+                if (d.ai_status === 'done') { dirty = false; location.href = AI_RESULT_URL; return; }
+                if (d.ai_status === 'failed') { setAi('❌ ' + (d.ai_error || 'ساخت گزارش ناموفق بود'), 'error'); aiBtn.disabled = false; return; }
+                setTimeout(tick, 2000);
+            } catch (e) {
+                setAi('❌ خطا در دریافت وضعیت از سرور', 'error');
+                aiBtn.disabled = false;
+            }
+        };
+        tick();
+    }
+</script>
+{% endif %}
 {% endblock %}

@@ -215,6 +215,16 @@
         background: #fff;
         cursor: pointer;
     }
+
+    .rec-timer.paused .rec-dot {
+        animation: none;
+        opacity: .35;
+    }
+
+    .btn.paused {
+        background: var(--primary-soft);
+        border-color: var(--primary);
+    }
 </style>
 {% endblock %}
 
@@ -234,6 +244,7 @@
         <div class="rec-divider"><span>یا</span></div>
         <div class="rec-box">
             <button type="button" class="btn" id="recBtn">🎤 ضبط صدا با میکروفون</button>
+            <button type="button" class="btn" id="pauseBtn" style="display:none">⏸ مکث</button>
             <span class="rec-timer" id="recTimer"><span class="rec-dot"></span><span id="recTime">00:00</span></span>
             <canvas id="recViz" class="rec-viz"></canvas>
             <audio id="recAudio" controls style="display:none"></audio>
@@ -314,6 +325,12 @@
     const recTime = document.getElementById('recTime');
     const recAudio = document.getElementById('recAudio');
     let mediaRecorder = null, recChunks = [], recStream = null, recStart = 0, recInterval = null;
+    const pauseBtn = document.getElementById('pauseBtn');
+    let recAccum = 0, recSegStart = 0;
+
+    function elapsedSec() {
+        return Math.floor((recAccum + (recSegStart ? Date.now() - recSegStart : 0)) / 1000);
+    }
 
     function pickMime() {
         const list = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
@@ -356,22 +373,50 @@
         recBtn.textContent = '⏹ توقف ضبط';
         recBtn.classList.add('recording');
         recTimer.style.display = 'inline-flex';
-        recStart = Date.now();
+        recAccum = 0;
+        recSegStart = Date.now();
         recTime.textContent = '00:00';
-        recInterval = setInterval(() => recTime.textContent = fmt(Math.floor((Date.now() - recStart) / 1000)), 500);
+        recInterval = setInterval(() => recTime.textContent = fmt(elapsedSec()), 500);
+        pauseBtn.style.display = '';
+        pauseBtn.textContent = '⏸ مکث';
+        pauseBtn.classList.remove('paused');
+        recTimer.classList.remove('paused');
     }
 
     function stopRecording() {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     }
 
+    function togglePause() {
+        if (!mediaRecorder) return;
+        if (mediaRecorder.state === 'recording') {
+            mediaRecorder.pause();
+            recAccum += Date.now() - recSegStart;
+            recSegStart = 0;
+            recStream.getAudioTracks().forEach(t => t.enabled = false);
+            pauseBtn.textContent = '▶ ادامه';
+            pauseBtn.classList.add('paused');
+            recTimer.classList.add('paused');
+        } else if (mediaRecorder.state === 'paused') {
+            mediaRecorder.resume();
+            recSegStart = Date.now();
+            recStream.getAudioTracks().forEach(t => t.enabled = true);
+            pauseBtn.textContent = '⏸ مکث';
+            pauseBtn.classList.remove('paused');
+            recTimer.classList.remove('paused');
+        }
+    }
+    pauseBtn.addEventListener('click', togglePause);
+
     function finishRecording() {
         clearInterval(recInterval);
         stopViz();
-        recStream.getTracks().forEach(t => t.stop());          // چراغ میکروفون خاموش شود
+        recStream.getTracks().forEach(t => t.stop());
         recBtn.textContent = '🎤 ضبط دوباره';
         recBtn.classList.remove('recording');
         recTimer.style.display = 'none';
+        pauseBtn.style.display = 'none';
+        recSegStart = 0;
 
         const mime = mediaRecorder.mimeType || 'audio/webm';
         const blob = new Blob(recChunks, { type: mime });
@@ -442,7 +487,7 @@
     }
 
     recBtn.addEventListener('click', () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording();
+        if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) stopRecording();
         else startRecording();
     });
 

@@ -18,6 +18,7 @@ from django.views.decorators.http import require_POST
 
 from .models import Transcription
 from .whisper_loader import get_model
+from .llm_loader import get_llm
 
 
 JOBS = {}
@@ -53,6 +54,21 @@ LANGS = {
 }
 DEFAULT_LANG = 'fa'
 
+SYSTEM_PROMPT = """You are a medical reporting assistant for physicians and radiologists.
+You receive a text that is either the doctor's dictated findings, or a short request
+(for example "ultrasound report, fatty liver grade 1"), optionally followed by extra
+instructions from the doctor. Write a complete, professional medical report.
+
+Rules:
+- Write in {language_name}. Keep standard medical terms (MRI, CT, T1, T2, FLAIR, DWI, ADC, IV Contrast, ...) in English.
+- Use only findings that the doctor stated or that are directly implied by the requested report type.
+  Never invent measurements, sizes, dates or patient data. If a needed value is missing, write "____".
+- Structure: title (h2), Technique, Findings (bullet list), Impression (numbered list).
+- Output ONLY HTML using these tags: h2, h3, p, ul, ol, li, strong, em, br.
+  No markdown, no code fences, no text before or after the report.
+- Formal and concise tone."""
+
+LANG_NAMES = {'fa': 'Persian (Farsi)', 'en': 'English'}
 
 class _Sanitizer(HTMLParser):
     def __init__(self):
@@ -147,6 +163,35 @@ def _process(job_id):
         _update_job(job_id, status='failed', error=str(e))
 
 
+def _generate(job_id, text, doctor_prompt):
+    try:
+        with TRANSCRIBE_LOCK:
+            with JOBS_LOCK:
+                lang = JOBS[job_id]['language']
+            html = generate_report(text, lang, doctor_prompt)
+        if '<' not in html:
+            html = linebreaks_filter(html, autoescape=True)
+        _update_job(job_id, ai_status='done', report_html=sanitize_html(html))
+    except Exception as e:
+        _update_job(job_id, ai_status='failed', ai_error=str(e))
+
+
+def generate_report(text, language, doctor_prompt=''):
+    system = SYSTEM_PROMPT.format(language_name=LANG_NAMES.get(language, 'Persian (Farsi)'))
+    user = f"Text:\n{text}"
+    if doctor_prompt.strip():
+        user += f"\n\nDoctor's extra instructions:\n{doctor_prompt.strip()}"
+
+    out = get_llm().create_chat_completion(
+        messages=[{'role': 'system', 'content': system},
+                  {'role': 'user', 'content': user}],
+        temperature=0.2,
+        max_tokens=1500,
+    )
+    html = out['choices'][0]['message']['content'].strip()
+    return re.sub(r'^```(?:html)?\s*|\s*```$', '', html)
+
+
 # ------------------------- views -------------------------------------
 def index(request):
     items = Transcription.objects.filter(status='done').order_by('-created_at')
@@ -179,6 +224,7 @@ def upload_audio(request):
             'status': 'pending', 'text': '', 'error': '',
             'path': str(path), 'filename': audio.name, 'created': time.time(),
             'language': lang,
+            'report_html': '', 'ai_status': '', 'ai_error': '',
         }
     threading.Thread(target=_process, args=(job_id,), daemon=True).start()
     return JsonResponse({'id': job_id, 'status': 'pending'})
@@ -190,7 +236,10 @@ def status(request, job_id):
         data = dict(job) if job else None
     if not data:
         return JsonResponse({'status': 'failed', 'error': 'این تبدیل پیدا نشد (ممکن است سرور ری‌استارت شده باشد)'}, status=404)
-    return JsonResponse({'status': data['status'], 'error': data['error']})
+    return JsonResponse({
+        'status': data['status'], 'error': data['error'],
+        'ai_status': data.get('ai_status', ''), 'ai_error': data.get('ai_error', ''),
+    })
 
 
 def result(request, job_id):
@@ -199,10 +248,18 @@ def result(request, job_id):
         job = dict(job) if job else None
     if not job or job['status'] != 'done':
         return redirect('index')
+
+    has_report = bool(job.get('report_html'))
+    is_ai = has_report and request.GET.get('view') != 'original'
+    content_html = job['report_html'] if is_ai else linebreaks_filter(job['text'], autoescape=True)
+
     return render(request, 'result.html', {
         'mode': 'job',
+        'job_id': job_id,
         'title': Path(job['filename']).stem,
-        'content_html': linebreaks_filter(job['text'], autoescape=True),
+        'content_html': content_html,
+        'is_ai': is_ai,
+        'has_report': has_report,
         'save_url': reverse('save_result', args=[job_id]),
         'discard_url': reverse('discard_result', args=[job_id]),
         'audio_url': '',
@@ -268,3 +325,28 @@ def update_saved(request, pk):
     obj.text = sanitize_html(html)
     obj.save(update_fields=['text'])
     return JsonResponse({'ok': True})
+
+
+@require_POST
+def start_report(request, job_id):
+    key = str(job_id)
+    try:
+        body = json.loads(request.body)
+    except (ValueError, AttributeError):
+        return JsonResponse({'error': 'درخواست نامعتبر'}, status=400)
+    text = (body.get('text') or '').strip()[:5000]
+    doctor_prompt = (body.get('prompt') or '').strip()[:2000]
+    if not text:
+        return JsonResponse({'error': 'متنی برای ارسال وجود ندارد'}, status=400)
+
+    with JOBS_LOCK:
+        job = JOBS.get(key)
+        if not job or job['status'] != 'done':
+            return JsonResponse({'error': 'این نتیجه دیگر در دسترس نیست'}, status=404)
+        if job.get('ai_status') == 'generating':
+            return JsonResponse({'error': 'گزارش در حال ساخت است'}, status=409)
+        job['ai_status'] = 'generating'
+        job['ai_error'] = ''
+
+    threading.Thread(target=_generate, args=(key, text, doctor_prompt), daemon=True).start()
+    return JsonResponse({'status': 'generating'})

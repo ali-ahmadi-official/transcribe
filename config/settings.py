@@ -136,3 +136,5 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+LLM_MODEL_PATH = BASE_DIR / 'models' / 'qwen2.5-1.5b-instruct-q4_k_m.gguf'
