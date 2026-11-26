@@ -607,6 +607,7 @@
         <div class="ai-status" id="aiStatus"></div>
     </div>
     {% endif %}
+    {% if mode == 'saved' and is_owner %}{% include 'share_panel.html' %}{% endif %}
 </div>
 {% endblock %}
 

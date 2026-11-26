@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% block title %}مدیریت پزشکان{% endblock %}
+
+{% block style %}
+<style>
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+    }
+
+    @media (max-width: 640px) {
+        .grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .field label {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 6px;
+    }
+
+    .field input {
+        width: 100%;
+        height: 42px;
+        padding: 0 12px;
+        font-family: inherit;
+        font-size: 14px;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: #fff;
+    }
+
+    .field input.ltr {
+        direction: ltr;
+        text-align: left;
+    }
+
+    .field input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+
+    .pw-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .pw-row input {
+        flex: 1;
+    }
+
+    .form-actions {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .hint {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 6px;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    table.docs {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+
+    table.docs th {
+        text-align: right;
+        font-weight: 500;
+        font-size: 12px;
+        color: var(--muted);
+        padding: 10px 12px;
+        background: var(--primary-softer);
+        border-bottom: 1px solid var(--border-strong);
+        white-space: nowrap;
+    }
+
+    table.docs td {
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+
+    table.docs tr:last-child td {
+        border-bottom: none;
+    }
+
+    table.docs tr.inactive td {
+        opacity: .55;
+    }
+
+    table.docs .uname {
+        direction: ltr;
+        text-align: right;
+        font-family: monospace;
+        font-size: 13px;
+        color: var(--muted);
+    }
+
+    .badge {
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        background: var(--primary-soft);
+        color: var(--primary-dark);
+        white-space: nowrap;
+    }
+
+    .badge.on {
+        background: var(--ok-bg);
+        color: var(--ok);
+    }
+
+    .badge.off {
+        background: var(--err-bg);
+        color: var(--err);
+    }
+
+    .row-actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .row-actions .btn {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+
+    .empty {
+        color: var(--muted);
+        font-size: 14px;
+        text-align: center;
+        padding: 16px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>👨‍⚕️ تعریف پزشک جدید</h1>
+    <div class="sub">پزشک با نام کاربری و گذرواژه‌ای که اینجا تعیین می‌کنید وارد سامانه می‌شود.</div>
+
+    <div class="grid">
+        <div class="field">
+            <label for="first_name">نام</label>
+            <input type="text" id="first_name" maxlength="150" autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="last_name">نام خانوادگی</label>
+            <input type="text" id="last_name" maxlength="150" autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="username">نام کاربری (انگلیسی)</label>
+            <input type="text" id="username" class="ltr" maxlength="150" autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="password">گذرواژه</label>
+            <div class="pw-row">
+                <input type="text" id="password" class="ltr" autocomplete="new-password">
+                <button type="button" class="btn" id="genPw" title="ساخت گذرواژه‌ی تصادفی">🎲 تصادفی</button>
+            </div>
+            <div class="hint">گذرواژه فقط همین‌جا دیده می‌شود؛ آن را برای پزشک ارسال کنید.</div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="button" class="btn primary" id="createBtn">➕ ثبت پزشک</button>
+        <span class="sub" id="formInfo" style="margin:0"></span>
+    </div>
+</div>
+
+<div class="card">
+    <h2>پزشکان ثبت‌شده</h2>
+    {% if doctors %}
+    <div class="table-wrap">
+        <table class="docs">
+            <thead>
+                <tr>
+                    <th>نام</th>
+                    <th>نام کاربری</th>
+                    <th>تعداد موارد</th>
+                    <th>تاریخ ثبت</th>
+                    <th>وضعیت</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in doctors %}
+                <tr class="{% if not d.is_active %}inactive{% endif %}">
+                    <td>{{ d.get_full_name|default:"—" }}</td>
+                    <td class="uname">{{ d.username }}</td>
+                    <td>{{ d.n_items }}</td>
+                    <td>{{ d.date_joined|date:"Y/m/d" }}</td>
+                    <td>
+                        {% if d.is_active %}<span class="badge on">فعال</span>
+                        {% else %}<span class="badge off">غیرفعال</span>{% endif %}
+                    </td>
+                    <td>
+                        <div class="row-actions">
+                            <button class="btn pw-btn" data-url="{% url 'doctor_password' d.id %}"
+                                data-name="{{ d.get_full_name|default:d.username }}">🔑 گذرواژه</button>
+                            <button class="btn toggle-btn {% if d.is_active %}danger{% endif %}"
+                                data-url="{% url 'doctor_toggle' d.id %}" data-active="{{ d.is_active|yesno:'1,0' }}"
+                                data-name="{{ d.get_full_name|default:d.username }}">
+                                {% if d.is_active %}غیرفعال‌سازی{% else %}فعال‌سازی{% endif %}
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty">هنوز پزشکی ثبت نشده است.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const CREATE_URL = "{% url 'doctor_create' %}";
+
+    function genPassword(len = 10) {
+        // بدون نویسه‌های مبهم (0 O 1 l I)
+        const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const buf = new Uint32Array(len);
+        crypto.getRandomValues(buf);
+        return Array.from(buf, n => chars[n % chars.length]).join('');
+    }
+    document.getElementById('genPw').addEventListener('click', () => {
+        document.getElementById('password').value = genPassword();
+    });
+
+    const createBtn = document.getElementById('createBtn');
+    createBtn.addEventListener('click', async () => {
+        const data = {
+            first_name: document.getElementById('first_name').value,
+            last_name: document.getElementById('last_name').value,
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value,
+        };
+        createBtn.disabled = true;
+        try {
+            await postJSON(CREATE_URL, data);
+            toast('✅ پزشک ثبت شد');
+            setTimeout(() => location.reload(), 700);
+        } catch (err) {
+            toast('❌ ' + err.message, true);
+            createBtn.disabled = false;
+        }
+    });
+
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const active = btn.dataset.active === '1';
+            const msg = active
+                ? `«${btn.dataset.name}» غیرفعال شود؟ دیگر نمی‌تواند وارد شود (اطلاعاتش حفظ می‌شود).`
+                : `«${btn.dataset.name}» دوباره فعال شود؟`;
+            if (!confirm(msg)) return;
+            btn.disabled = true;
+            try {
+                await postJSON(btn.dataset.url);
+                location.reload();
+            } catch (err) {
+                toast('❌ ' + err.message, true);
+                btn.disabled = false;
+            }
+        });
+    });
+
+    document.querySelectorAll('.pw-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const pw = prompt(`گذرواژه‌ی جدید برای «${btn.dataset.name}»:`, genPassword());
+            if (pw === null) return;
+            btn.disabled = true;
+            try {
+                await postJSON(btn.dataset.url, { password: pw });
+                toast('✅ گذرواژه تغییر کرد');
+                try { await navigator.clipboard.writeText(pw); } catch (e) { }
+            } catch (err) {
+                toast('❌ ' + err.message, true);
+            }
+            btn.disabled = false;
+        });
+    });
+</script>
+{% endblock %}

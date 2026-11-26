@@ -138,3 +138,7 @@ MAILERS = {
 }
 
 LLM_MODEL_PATH = BASE_DIR / 'models' / 'qwen2.5-1.5b-instruct-q4_k_m.gguf'
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'index'
+LOGOUT_REDIRECT_URL = 'login'

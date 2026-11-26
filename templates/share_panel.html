@@ -1,0 +1,145 @@
+<div class="share-box no-print" id="shareBox">
+    <style>
+        .share-box {
+            margin-top: 22px;
+            padding: 18px;
+            border: 1px solid var(--border-strong);
+            border-radius: 12px;
+            background: var(--primary-softer);
+        }
+
+        .share-box h2 {
+            margin-bottom: 6px;
+        }
+
+        .share-all {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            margin: 12px 0;
+            padding: 10px 12px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .share-list {
+            max-height: 240px;
+            overflow: auto;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px;
+        }
+
+        .share-list.disabled {
+            opacity: .45;
+            pointer-events: none;
+        }
+
+        .share-list label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            font-size: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .share-list label:hover {
+            background: var(--primary-soft);
+        }
+
+        .share-search {
+            width: 100%;
+            height: 36px;
+            margin-bottom: 8px;
+            padding: 0 10px;
+            font-family: inherit;
+            font-size: 13px;
+            border: 1px solid var(--border-strong);
+            border-radius: 8px;
+        }
+
+        .share-search:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .share-actions {
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .share-empty {
+            color: var(--muted);
+            font-size: 13px;
+            padding: 10px;
+        }
+    </style>
+
+    <h2>👥 اشتراک‌گذاری با پزشکان</h2>
+    <div class="sub" style="margin-bottom:0">پزشکان انتخاب‌شده فقط می‌توانند این مورد را ببینند (بدون امکان ویرایش).
+    </div>
+
+    <label class="share-all">
+        <input type="checkbox" id="shareAll" {% if shared_all %}checked{% endif %}>
+        <span>اشتراک با همه پزشکان</span>
+    </label>
+
+    <input type="text" class="share-search" id="shareSearch" placeholder="جستجوی پزشک...">
+    <div class="share-list {% if shared_all %}disabled{% endif %}" id="shareList">
+        {% for d in doctors %}
+        <label data-name="{{ d.get_full_name|default:d.username }}">
+            <input type="checkbox" class="doc-cb" value="{{ d.id }}" {% if d.id in shared_ids %}checked{% endif %}>
+            <span>{{ d.get_full_name|default:d.username }}</span>
+        </label>
+        {% empty %}
+        <div class="share-empty">پزشک دیگری در سامانه ثبت نشده است.</div>
+        {% endfor %}
+    </div>
+
+    <div class="share-actions">
+        <button type="button" class="btn primary" id="shareSave">ذخیره اشتراک‌گذاری</button>
+        <span class="sub" id="shareInfo" style="margin:0"></span>
+    </div>
+
+    <script>
+        (function () {
+            const SHARE_URL = "{% url 'share_saved' obj_id %}";
+            const all = document.getElementById('shareAll');
+            const list = document.getElementById('shareList');
+            const info = document.getElementById('shareInfo');
+            const btn = document.getElementById('shareSave');
+            const toFaN = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+
+            all.addEventListener('change', () => list.classList.toggle('disabled', all.checked));
+
+            document.getElementById('shareSearch').addEventListener('input', e => {
+                const q = e.target.value.trim();
+                list.querySelectorAll('label').forEach(l => {
+                    l.style.display = !q || l.dataset.name.includes(q) ? '' : 'none';
+                });
+            });
+
+            btn.addEventListener('click', async () => {
+                const ids = [...list.querySelectorAll('.doc-cb:checked')].map(c => parseInt(c.value, 10));
+                btn.disabled = true;
+                try {
+                    const r = await postJSON(SHARE_URL, { all: all.checked, doctor_ids: ids });
+                    info.textContent = r.all ? 'با همه پزشکان به اشتراک گذاشته شد'
+                        : (r.count ? 'با ' + toFaN(r.count) + ' پزشک به اشتراک گذاشته شد' : 'اشتراک‌گذاری برداشته شد');
+                    toast('✅ ذخیره شد');
+                } catch (err) {
+                    toast('❌ ' + err.message, true);
+                }
+                btn.disabled = false;
+            });
+        })();
+    </script>
+</div>

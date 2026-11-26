@@ -249,6 +249,12 @@
             <canvas id="recViz" class="rec-viz"></canvas>
             <audio id="recAudio" controls style="display:none"></audio>
         </div>
+        <div class="lang-row" style="gap:10px;flex-wrap:wrap">
+            <input type="text" id="patient_name" placeholder="نام بیمار" maxlength="150"
+                style="flex:1;min-width:180px;height:42px;padding:0 12px;font-family:inherit;border:1px solid var(--border-strong);border-radius:10px">
+            <input type="text" id="patient_national_id" placeholder="کد ملی" maxlength="10" inputmode="numeric"
+                style="flex:1;min-width:140px;height:42px;padding:0 12px;font-family:inherit;border:1px solid var(--border-strong);border-radius:10px;direction:ltr;text-align:left">
+        </div>
         <div class="lang-row">
             <label for="language">زبان صوت:</label>
             <select id="language" name="language">
@@ -264,13 +270,22 @@
 
 <div class="card">
     <h2>تبدیل‌های ذخیره‌شده</h2>
+    <form method="get" style="display:flex;gap:8px;margin-bottom:14px">
+        <input type="text" name="q" value="{{ q }}" placeholder="جستجو با نام یا کد ملی بیمار..."
+            style="flex:1;height:40px;padding:0 12px;font-family:inherit;border:1px solid var(--border-strong);border-radius:10px">
+        <button class="btn primary" type="submit">جستجو</button>
+        {% if q %}<a class="btn" href="{% url 'index' %}">پاک کردن</a>{% endif %}
+    </form>
     {% if items %}
     <ul class="list">
         {% for t in items %}
         <li>
             <a href="{% url 'detail' t.id %}">
                 <div>
-                    <div class="name">{{ t.audio_file.name|cut:"audio_uploads/" }}</div>
+                    <div class="name">{{ t.display_title }}
+                        {% if t.owner_id != request.user.id %}<span class="badge" style="margin-right:6px">{{
+                            t.owner.get_full_name|default:t.owner.username }}</span>{% endif %}
+                    </div>
                     <div class="preview">{{ t.text|striptags|truncatechars:110 }}</div>
                 </div>
                 <div class="date">{{ t.created_at|date:"Y/m/d H:i" }}</div>
@@ -497,6 +512,8 @@
             const fd = new FormData();
             fd.append('audio', file);
             fd.append('language', document.getElementById('language').value);
+            fd.append('patient_name', document.getElementById('patient_name').value);
+            fd.append('patient_national_id', document.getElementById('patient_national_id').value);
             const xhr = new XMLHttpRequest();
             xhr.open('POST', UPLOAD_URL);
             xhr.setRequestHeader('X-CSRFToken', CSRF);
